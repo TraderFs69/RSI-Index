@@ -7,7 +7,12 @@ import time
 # ==================================
 # CONFIG
 # ==================================
-POLYGON_API_KEY = st.secrets["POLYGON_API_KEY"]
+try:
+    POLYGON_API_KEY = st.secrets["POLYGON_API_KEY"]
+except:
+    st.error("POLYGON_API_KEY manquante dans Streamlit Secrets.")
+    st.stop()
+
 
 st.set_page_config(layout="wide")
 st.title("📊 RSI Relative vs ETF (Polygon)")
