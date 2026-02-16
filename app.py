@@ -3,13 +3,14 @@ import pandas as pd
 import requests
 from datetime import datetime, timedelta
 import time
+import re
 
 # ==================================
 # CONFIG
 # ==================================
 
 st.set_page_config(layout="wide")
-st.title("📊 RSI Relative vs ETF (Polygon - Accurate Mapping)")
+st.title("📊 RSI Relative vs ETF (Polygon - Robust Version)")
 
 try:
     POLYGON_API_KEY = st.secrets["POLYGON_API_KEY"]
@@ -18,7 +19,7 @@ except:
     st.stop()
 
 # ==================================
-# RSI WILDER (TradingView Compatible)
+# RSI WILDER (MATCH TRADINGVIEW)
 # ==================================
 
 def calculate_rsi(df, period=14):
@@ -44,6 +45,7 @@ def calculate_rsi(df, period=14):
     rsi = 100 - (100 / (1 + rs))
 
     return rsi.iloc[-1]
+
 
 # ==================================
 # FETCH DATA POLYGON
@@ -79,33 +81,58 @@ def get_daily_data(ticker):
 
     return df
 
+
 # ==================================
-# INDEX → ETF MAPPING CORRIGÉ
+# BULLETPROOF INDEX → ETF MAPPING
 # ==================================
 
 def map_index_to_etf(index_name):
 
-    index_name = str(index_name).upper()
-
-    # 🔥 Ordre spécifique → général
-    if "RUSSELL 1000" in index_name:
-        return "IWB"
-    elif "RUSSELL 2000" in index_name:
-        return "IWM"
-    elif "RUSSELL 3000" in index_name:
-        return "IWV"
-    elif "S&P 500" in index_name or "SP500" in index_name:
-        return "SPY"
-    elif "NASDAQ 100" in index_name:
-        return "QQQ"
-    elif "NASDAQ" in index_name:
-        return "QQQ"
-    elif "DOW" in index_name or "DJIA" in index_name:
-        return "DIA"
-    elif "TSX" in index_name:
-        return "XIU"
-    else:
+    if pd.isna(index_name):
         return None
+
+    cleaned = str(index_name).upper()
+
+    # Nettoyage robuste
+    cleaned = re.sub(r"[-_/]", " ", cleaned)
+    cleaned = re.sub(r"\s+", " ", cleaned)
+    cleaned = cleaned.strip()
+
+    # Normalisation S&P
+    cleaned = cleaned.replace("S&P500", "S&P 500")
+    cleaned = cleaned.replace("SP500", "S&P 500")
+
+    words = cleaned.split()
+
+    first_two = " ".join(words[:2])
+
+    # Matching strict basé sur le début
+    if first_two == "S&P 500":
+        return "SPY"
+
+    if first_two == "RUSSELL 1000":
+        return "IWB"
+
+    if first_two == "RUSSELL 2000":
+        return "IWM"
+
+    if first_two == "RUSSELL 3000":
+        return "IWV"
+
+    if first_two == "NASDAQ 100":
+        return "QQQ"
+
+    if words[0] == "NASDAQ":
+        return "QQQ"
+
+    if words[0] == "DOW":
+        return "DIA"
+
+    if words[0] == "TSX":
+        return "XIU"
+
+    return None
+
 
 # ==================================
 # MAIN
@@ -136,50 +163,4 @@ for i, (_, row) in enumerate(df_input.iterrows()):
 
     # Charger ETF une seule fois
     if etf and etf not in etf_cache:
-        etf_data = get_daily_data(etf)
-        if etf_data is not None:
-            etf_cache[etf] = calculate_rsi(etf_data)
-        else:
-            etf_cache[etf] = None
-
-    stock_rsi = None
-    etf_rsi = etf_cache.get(etf)
-
-    if stock_data is not None:
-        stock_rsi = calculate_rsi(stock_data)
-
-    if stock_rsi is not None and etf_rsi is not None:
-
-        results.append({
-            "Symbol": symbol,
-            "Index": index_name,
-            "ETF": etf,
-            "Stock_RSI14": round(stock_rsi, 2),
-            "ETF_RSI14": round(etf_rsi, 2),
-            "RSI_Relative": round(stock_rsi - etf_rsi, 2)
-        })
-
-    progress.progress((i + 1) / total)
-    time.sleep(0.05)
-
-df_results = pd.DataFrame(results)
-
-if not df_results.empty:
-
-    df_results = df_results.sort_values(by="RSI_Relative", ascending=False)
-
-    st.subheader("📈 Résultats classés par RSI Relatif")
-    st.dataframe(df_results, use_container_width=True)
-
-    csv = df_results.to_csv(index=False).encode("utf-8")
-
-    st.download_button(
-        "Télécharger le CSV",
-        csv,
-        "rsi_relative_sorted.csv",
-        "text/csv"
-    )
-
-else:
-    st.warning("Aucun résultat valide.")
-
+        etf
